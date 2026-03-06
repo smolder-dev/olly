@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://golangci-lint.run/jsonschema/golangci.jsonschema.json
+version: "2"
+linters:
+  default: all
+  disable:
+    - depguard
+    # this does not matter anymore after go 1.26 where fmt.Errorf with no formatting is the same performance as errors.New
+    # unfortunately, the error equality linting is useful, but there is no way to configure this linter for that
+    - err113
+    - funlen
+    - mnd
+    - nestif
+    - varnamelen
+    - wsl
+  settings:
+    perfsprint:
+      error-format: false
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+    sloglint:
+      context: all
+      static-msg: true
+      msg-style: lowercased
+      key-naming-case: snake
+    wrapcheck:
+      extra-ignore-sigs:
+        - .Fail(
