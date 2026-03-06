@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/otel"
@@ -46,7 +45,6 @@ func newPropagator() propagation.TextMapPropagator {
 
 func newTracerProvider(
 	ctx context.Context,
-	dev bool,
 	config OTelProviderConfig,
 ) (*trace.TracerProvider, error) {
 	if !config.DisableDefaultTracerExporter {
@@ -55,15 +53,7 @@ func newTracerProvider(
 			return nil, fmt.Errorf("failed to create OTLP trace exporter: %w", err)
 		}
 
-		batchTimeout := 5000 * time.Millisecond
-		if dev {
-			batchTimeout = 100 * time.Millisecond
-		}
-
-		config.TracerProviderOptions = append(
-			config.TracerProviderOptions,
-			trace.WithBatcher(traceExporter, trace.WithBatchTimeout(batchTimeout)),
-		)
+		config.TracerProviderOptions = append(config.TracerProviderOptions, trace.WithBatcher(traceExporter))
 	}
 
 	tracerProvider := trace.NewTracerProvider(config.TracerProviderOptions...)
@@ -89,21 +79,16 @@ func newMeterProvider(ctx context.Context, config OTelProviderConfig) (*metric.M
 	return meterProvider, nil
 }
 
-func newLoggerProvider(ctx context.Context, dev bool, config OTelProviderConfig) (*log.LoggerProvider, error) {
+func newLoggerProvider(ctx context.Context, config OTelProviderConfig) (*log.LoggerProvider, error) {
 	logExporter, err := autoexport.NewLogExporter(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP log exporter: %w", err)
 	}
 
 	if !config.DisableDefaultLoggerExporter {
-		logBatchInterval := 5000 * time.Millisecond
-		if dev {
-			logBatchInterval = 100 * time.Millisecond
-		}
-
 		config.LoggerProviderOptions = append(
 			config.LoggerProviderOptions,
-			log.WithProcessor(log.NewBatchProcessor(logExporter, log.WithExportInterval(logBatchInterval))),
+			log.WithProcessor(log.NewBatchProcessor(logExporter)),
 		)
 	}
 
@@ -119,7 +104,6 @@ func newLoggerProvider(ctx context.Context, dev bool, config OTelProviderConfig)
 // making it shorter for development environments.
 func NewOTelProviders(
 	ctx context.Context,
-	development bool,
 	config OTelProviderConfig,
 ) (OTelProviders, error) {
 	//nolint:exhaustruct
@@ -145,7 +129,7 @@ func NewOTelProviders(
 		otel.SetTextMapPropagator(config.TextMapPropagator)
 	}
 
-	tracerProvider, err := newTracerProvider(ctx, development, config)
+	tracerProvider, err := newTracerProvider(ctx, config)
 	if err != nil {
 		shutdown = true
 
@@ -173,7 +157,7 @@ func NewOTelProviders(
 	providers.MeterProvider = meterProvider
 
 	// Set up logger provider.
-	loggerProvider, err := newLoggerProvider(ctx, development, config)
+	loggerProvider, err := newLoggerProvider(ctx, config)
 	if err != nil {
 		shutdown = true
 
