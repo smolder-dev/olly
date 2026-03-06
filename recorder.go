@@ -142,3 +142,17 @@ func (r OTelRecorder) NewLogger(handler slog.Handler, options ...otelslog.Option
 
 	return slogLogger
 }
+
+type otelRecorderContextKey struct{}
+
+// WrapContext Registers an OTelRecorder in the context, which can be retrieved using RecorderFromContext.
+// This is necessary to allow other functions in this package to operate.
+func (r OTelRecorder) WrapContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, otelRecorderContextKey{}, r)
+}
+
+func RecorderFromContext(ctx context.Context) (OTelRecorder, bool) {
+	tracer, ok := ctx.Value(otelRecorderContextKey{}).(OTelRecorder)
+
+	return tracer, ok
+}
