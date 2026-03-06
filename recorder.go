@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/otelconf"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/metric"
@@ -12,12 +13,12 @@ import (
 )
 
 type OTelRecorder struct {
-	name      string
-	config    otelRecorderConfig
-	providers OTelProviders
-	tracer    trace.Tracer
-	meter     metric.Meter
-	logger    log.Logger
+	name   string
+	config otelRecorderConfig
+	sdk    otelconf.SDK
+	tracer trace.Tracer
+	meter  metric.Meter
+	logger log.Logger
 }
 
 type otelRecorderConfig struct {
@@ -79,7 +80,7 @@ var _ otelRecorderOptions = otelRecorderOptionAttrs{}
 
 func NewOTelRecorder(
 	ctx context.Context,
-	providers OTelProviders,
+	sdk otelconf.SDK,
 	name string,
 	options ...otelRecorderOptions,
 ) OTelRecorder {
@@ -95,7 +96,7 @@ func NewOTelRecorder(
 		trace.WithInstrumentationAttributeSet(config.Attrs),
 	}
 
-	tracer := providers.TracerProvider.Tracer(name, tracerOptions...)
+	tracer := sdk.TracerProvider().Tracer(name, tracerOptions...)
 
 	meterOptions := []metric.MeterOption{
 		metric.WithInstrumentationVersion(config.InstrumentationVersion),
@@ -103,7 +104,7 @@ func NewOTelRecorder(
 		metric.WithInstrumentationAttributeSet(config.Attrs),
 	}
 
-	meter := providers.MeterProvider.Meter(name, meterOptions...)
+	meter := sdk.MeterProvider().Meter(name, meterOptions...)
 
 	loggerOptions := []log.LoggerOption{
 		log.WithInstrumentationVersion(config.InstrumentationVersion),
@@ -111,15 +112,15 @@ func NewOTelRecorder(
 		log.WithInstrumentationAttributeSet(config.Attrs),
 	}
 
-	logger := providers.LoggerProvider.Logger(name, loggerOptions...)
+	logger := sdk.LoggerProvider().Logger(name, loggerOptions...)
 
 	return OTelRecorder{
-		name:      name,
-		config:    config,
-		providers: providers,
-		tracer:    tracer,
-		meter:     meter,
-		logger:    logger,
+		name:   name,
+		config: config,
+		sdk:    sdk,
+		tracer: tracer,
+		meter:  meter,
+		logger: logger,
 	}
 }
 
@@ -128,7 +129,7 @@ func (r OTelRecorder) NewLogger(handler slog.Handler, options ...otelslog.Option
 
 	loggerOptions = append(
 		loggerOptions,
-		otelslog.WithLoggerProvider(r.providers.LoggerProvider),
+		otelslog.WithLoggerProvider(r.sdk.LoggerProvider()),
 		otelslog.WithSchemaURL(r.config.SchemaURL),
 		otelslog.WithVersion(r.config.InstrumentationVersion),
 		otelslog.WithAttributes(r.config.Attrs.ToSlice()...),
