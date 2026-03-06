@@ -7,9 +7,9 @@ import (
 	"log/slog"
 
 	"go.opentelemetry.io/contrib/exporters/autoexport"
+	"go.opentelemetry.io/contrib/propagators/autoprop"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/log/global"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -24,23 +24,13 @@ type OTelProviders struct {
 // OTelProviderConfig holds configuration options for the OpenTelemetry providers.
 // An empty OTelProviderConfig will result in the default configuration.
 type OTelProviderConfig struct {
-	DisableDefaultTracerExporter    bool
-	TracerProviderOptions           []trace.TracerProviderOption
-	DisableDefaultMeterExporter     bool
-	MeterProviderOptions            []metric.Option
-	DisableDefaultLoggerExporter    bool
-	LoggerProviderOptions           []log.LoggerProviderOption
-	DisableDefaultTextMapPropagator bool
-	TextMapPropagator               propagation.TextMapPropagator
-	DisableGlobalProviders          bool
-}
-
-//nolint:ireturn
-func newPropagator() propagation.TextMapPropagator {
-	return propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	)
+	DisableDefaultTracerExporter bool
+	TracerProviderOptions        []trace.TracerProviderOption
+	DisableDefaultMeterExporter  bool
+	MeterProviderOptions         []metric.Option
+	DisableDefaultLoggerExporter bool
+	LoggerProviderOptions        []log.LoggerProviderOption
+	DisableGlobalProviders       bool
 }
 
 func newTracerProvider(
@@ -122,12 +112,8 @@ func NewOTelProviders(
 		}
 	}()
 
-	if !config.DisableDefaultTextMapPropagator {
-		prop := newPropagator()
-		otel.SetTextMapPropagator(prop)
-	} else {
-		otel.SetTextMapPropagator(config.TextMapPropagator)
-	}
+	propagator := autoprop.NewTextMapPropagator()
+	otel.SetTextMapPropagator(propagator)
 
 	tracerProvider, err := newTracerProvider(ctx, config)
 	if err != nil {
